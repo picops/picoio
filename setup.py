@@ -41,33 +41,53 @@ for d in _arrow_system_lib_dirs():
 # C extensions
 c_extensions = []
 
-# Cython extensions
+_cython_opts = {
+    "extra_compile_args": [
+        "-O3",
+        "-march=native",
+        "-Wno-unused-function",
+        "-Wno-unused-variable",
+    ],
+    "language": "c++",
+}
+_cython_directives = {
+    "language_level": 3,
+    "boundscheck": False,
+    "wraparound": False,
+    "cdivision": True,
+    "infer_types": True,
+    "nonecheck": False,
+    "initializedcheck": False,
+}
+
+# Only arrow.pyx links against Arrow C++; others must not to avoid manylinux linker errors.
 cythonized_extensions = cythonize(
     [
         Extension(
-            "picoio.*",
-            ["src/picoio/**/*.pyx"],
-            extra_compile_args=[
-                "-O3",
-                "-march=native",
-                "-Wno-unused-function",
-                "-Wno-unused-variable",
-            ],
+            "picoio.arrow",
+            ["src/picoio/arrow.pyx"],
+            **_cython_opts,
             libraries=pyarrow.get_libraries(),
             library_dirs=_arrow_lib_dirs,
             include_dirs=[pyarrow.get_include()] + [np.get_include()],
-            language="c++",
+        ),
+        Extension(
+            "picoio.json",
+            ["src/picoio/json.pyx"],
+            **_cython_opts,
+        ),
+        Extension(
+            "picoio.toml",
+            ["src/picoio/toml.pyx"],
+            **_cython_opts,
+        ),
+        Extension(
+            "picoio._experimental.flist",
+            ["src/picoio/_experimental/flist.pyx"],
+            **_cython_opts,
         ),
     ],
-    compiler_directives={
-        "language_level": 3,
-        "boundscheck": False,
-        "wraparound": False,
-        "cdivision": True,
-        "infer_types": True,
-        "nonecheck": False,
-        "initializedcheck": False,
-    },
+    compiler_directives=_cython_directives,
     build_dir=get_cython_build_dir(),
 )
 
@@ -91,7 +111,7 @@ pybind_extensions = [
 # Build
 if __name__ == "__main__":
     setup(
-        packages=find_packages(where="src"),
+        packages=find_packages(where="src", include=["picoio", "picoio.*"]),
         package_dir={"": "src"},
         package_data={"picoio": ["**/*.pxd", "**/*.pxi"]},
         ext_modules=c_extensions + cythonized_extensions + pybind_extensions,
