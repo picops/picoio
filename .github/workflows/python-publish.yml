@@ -35,8 +35,6 @@ jobs:
         env:
           # Install build deps inside each container and set LIBRARY_PATH for Arrow.
           CIBW_BEFORE_BUILD_LINUX: bash scripts/cibuildwheel-before-build-linux.sh
-          # Use container env (where we installed pyarrow) so linker finds libarrow.so.
-          CIBW_BUILD_FRONTEND_ARGS: "--no-isolation"
         with:
           output-dir: dist
 

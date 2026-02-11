@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
-# Runs inside manylinux/musllinux container before each wheel build.
-# Mirrors system deps from scripts/install-deps.sh (libzip, zeromq, etc.).
-# Arrow + all required expansions (parquet, dataset, etc.) come from the pyarrow wheel.
-# Use with CIBW_BUILD_FRONTEND_ARGS="--no-isolation".
+# Runs inside manylinux/musllinux before each wheel build. Same deps as install-deps.sh.
+# Requires --no-isolation in pyproject.toml.
 set -e
 
-# --- System libs (match install-deps.sh: libzip, zeromq; compiler/cmake are in image) ---
-# manylinux: RHEL/CentOS → dnf/yum; musllinux: Alpine → apk
+# install-deps.sh: build-essential, cmake, libzip-dev, libzmq3-dev, pybind11-dev, Arrow (→ pyarrow pip)
 if command -v dnf &>/dev/null; then
-  dnf install -y libzip-devel zeromq-devel || yum install -y libzip-devel zeromq-devel
+  dnf install -y gcc-c++ cmake libzip-devel zeromq-devel
+  dnf install -y pybind11-devel 2>/dev/null || true
+elif command -v yum &>/dev/null; then
+  yum install -y gcc-c++ cmake libzip-devel zeromq-devel
+  yum install -y pybind11-devel 2>/dev/null || true
 elif command -v apk &>/dev/null; then
-  apk add --no-cache libzip-dev libzmq-dev
+  apk add --no-cache build-base cmake libzip-dev libzmq-dev
+  apk add --no-cache pybind11-dev 2>/dev/null || true
 fi
 
-# --- Python build deps (pyarrow wheel = Arrow + parquet/dataset/etc. like install-deps.sh) ---
+# Arrow + build deps from pyproject (Arrow C++ = pyarrow wheel; create_library_symlinks so -larrow works)
 pip install -q setuptools wheel Cython numpy pyarrow pybind11 "picobuild==0.0.5b1"
-
-# --- Linker: find Arrow C++ libs from pyarrow wheel (same role as libarrow-dev in install-deps.sh) ---
+python -c "import pyarrow; pyarrow.create_library_symlinks()" 2>/dev/null || true
 ARROW_LIB=$(python -c "import pyarrow, os; d=os.path.join(os.path.dirname(pyarrow.__file__), 'lib'); print(d if os.path.isdir(d) else os.path.dirname(pyarrow.__file__))")
 export LIBRARY_PATH="${ARROW_LIB}${LIBRARY_PATH:+:${LIBRARY_PATH}}"

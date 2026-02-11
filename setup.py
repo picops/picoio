@@ -120,7 +120,7 @@ pybind_extensions = [
 # Build
 if __name__ == "__main__":
     setup(
-        packages=find_packages(where="src", include=["picoio", "picoio.*"]),
+        packages=find_packages(where="src", include=["picoio", "picoio.*", "picoio._experimental"]),
         package_dir={"": "src"},
         package_data={"picoio": ["**/*.pxd", "**/*.pxi"]},
         ext_modules=c_extensions + cythonized_extensions + pybind_extensions,
