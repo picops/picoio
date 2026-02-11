@@ -26,7 +26,7 @@ def _arrow_system_lib_dirs():
 
 
 # PyArrow wheel bundles Arrow C++ libs; ensure linker can find them (package dir + lib/ subdir).
-# When arrow-devel is installed (e.g. in cibuildwheel), add system Arrow lib dirs so -larrow is found.
+# When arrow-devel is installed (e.g. on host), add system Arrow lib dirs so -larrow is found.
 _arrow_lib_dirs = list(pyarrow.get_library_dirs())
 _arrow_pkg = os.path.dirname(pyarrow.__file__)
 if _arrow_pkg not in _arrow_lib_dirs:
@@ -37,6 +37,13 @@ if os.path.isdir(_arrow_lib) and _arrow_lib not in _arrow_lib_dirs:
 for d in _arrow_system_lib_dirs():
     if d and d not in _arrow_lib_dirs:
         _arrow_lib_dirs.append(d)
+
+# In manylinux/cibuildwheel the linker often needs LIBRARY_PATH to find pyarrow-bundled libs.
+if _arrow_lib_dirs:
+    _existing = os.environ.get("LIBRARY_PATH", "")
+    os.environ["LIBRARY_PATH"] = os.pathsep.join(_arrow_lib_dirs) + (
+        (os.pathsep + _existing) if _existing else ""
+    )
 
 # C extensions
 c_extensions = []
@@ -61,6 +68,7 @@ _cython_directives = {
 }
 
 # Only arrow.pyx links against Arrow C++; others must not to avoid manylinux linker errors.
+_arrow_extra_link_args = [f"-L{d}" for d in _arrow_lib_dirs]
 cythonized_extensions = cythonize(
     [
         Extension(
@@ -69,6 +77,7 @@ cythonized_extensions = cythonize(
             **_cython_opts,
             libraries=pyarrow.get_libraries(),
             library_dirs=_arrow_lib_dirs,
+            extra_link_args=_arrow_extra_link_args,
             include_dirs=[pyarrow.get_include()] + [np.get_include()],
         ),
         Extension(
