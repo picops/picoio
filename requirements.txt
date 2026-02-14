@@ -1,4 +1,4 @@
-picobuild==0.0.5b1
+picobuild>=0.1.0
 pytest
 sphinx
 sphinx-rtd-theme
